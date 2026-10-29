@@ -17,6 +17,7 @@ public struct PedometerMeasurement: Sendable, Equatable {
 
 public protocol PedometerServing: Sendable {
     func steps(from startDate: Date, to endDate: Date) async throws -> PedometerMeasurement?
+    func prepareAuthorization() async throws
 }
 
 public enum PedometerServiceError: Error, Sendable {
@@ -29,6 +30,18 @@ public final class PedometerService: PedometerServing, @unchecked Sendable {
 
     public init() {
         self.pedometer = CMPedometer()
+    }
+
+    /// Trigger the iOS Motion & Fitness permission flow before an exercise starts.
+    /// Permission is managed by iOS, so this query is intentionally separate
+    /// from measurements recorded for a workout.
+    public func prepareAuthorization() async throws {
+        guard CMPedometer.isStepCountingAvailable() else {
+            throw PedometerServiceError.unavailable
+        }
+        let endDate = Date()
+        let startDate = endDate.addingTimeInterval(-60)
+        _ = try await steps(from: startDate, to: endDate)
     }
 
     public func steps(from startDate: Date, to endDate: Date) async throws -> PedometerMeasurement? {
